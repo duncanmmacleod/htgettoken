@@ -161,13 +161,22 @@ class vaulthost:
     port = 0
     hostalias = None
 
-    def __init__(self, parsedurl):
+    def __init__(
+        self,
+        parsedurl,
+        hostalias=None,
+        capath=defaults["capath"],
+        cafile=defaults["cafile"],
+        verbose=False,
+        debug=False,
+    ):
         self.host = parsedurl.host
         self.port = parsedurl.port
-        if options.vaultcertname is None:
-            self.hostalias = self.host
-        else:
-            self.hostalias = options.vaultcertname
+        self.hostalias = hostalias or self.host
+        self.capath = capath
+        self.cafile = cafile
+        self.verbose = verbose or debug
+        self.debug = debug
 
     def close(self):
         if self.pool != None:
@@ -196,7 +205,7 @@ class vaulthost:
         self.pool = urllib3.HTTPSConnectionPool(self.ips[0],
                             timeout=urllib3.util.Timeout(connect=2, read=10),
                             assert_hostname=self.hostalias, port=self.port,
-                            ca_cert_dir=options.capath, ca_certs=options.cafile)
+                            ca_cert_dir=self.capath, ca_certs=self.cafile)
 
     def request(self, path, headers=None, params=None, data=None, ignore_400=False):
         if len(self.ips) == 0:
@@ -213,13 +222,13 @@ class vaulthost:
                     raise e
                 if len(self.ips) == 1:
                     raise e
-                if options.verbose:
+                if self.verbose:
                     log('Connection timeout on %s ip %s, trying %s' % (self.host, self.ips[0], self.ips[1]))
                 del self.ips[0]
                 self.newpool()
             else:
                 if resp.status == 400 and ignore_400:
-                    if options.debug:
+                    if self.debug:
                         log("ignoring 400 status")
                     return resp
                 if resp.status != 200 and resp.status != 204:
@@ -631,7 +640,14 @@ def main():
             #  using stdout have been set
             log("Fetching options from " + optserver)
         optparsed = urllib3.util.parse_url(optserver)
-        opthost = vaulthost(optparsed)
+        opthost = vaulthost(
+            optparsed,
+            hostalias=options.vaultcertname,
+            capath=options.capath,
+            cafile=options.cafile,
+            verbose=options.verbose,
+            debug=options.debug,
+        )
         try:
             resp = opthost.request(optparsed.path)
         except Exception as e:
@@ -746,7 +762,14 @@ def main():
     vaulthostname = vaultaliasparsed.host
 
     global vault
-    vault = vaulthost(vaultserverparsed)
+    vault = vaulthost(
+        vaultserverparsed,
+        hostalias=options.vaultcertname,
+        capath=options.capath,
+        cafile=options.cafile,
+        verbose=options.verbose,
+        debug=options.debug,
+    )
 
     secretpath = options.secretpath.replace("%issuer", options.issuer)
     secretpath = secretpath.replace("%role", options.role)
