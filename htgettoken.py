@@ -64,12 +64,8 @@ defaults = {
 }
 
 # these are global
-options = None
 showprogress = False
 logfile = sys.stderr
-vaultserver = None
-vaulthostname = None
-vault = None # default instance of the vaulthost class
 
 # enable printing utf-8 without crashing
 sys.stdout = open(1, 'w', encoding='utf-8', closefd=False)
@@ -246,7 +242,7 @@ class vaulthost:
                 return resp
 
 
-def checkRequiredOptions(parser):
+def checkRequiredOptions(parser, options):
     """Check required options.
 
     Function from
@@ -268,7 +264,6 @@ def parseargs(parser, argv):
     This is a function because it has to be done after both times
     the options are processed.
     """
-    global options
     (options, args) = parser.parse_args(argv)
     if len(args) != 0:
         usage(parser, "no non-option arguments expected")
@@ -277,6 +272,7 @@ def parseargs(parser, argv):
     #  the options file.
     if options.capath is None:
         options.capath = os.getenv('X509_CERT_DIR') or defaults['capath']
+    return options
 
 
 def getVaultToken(vault, vaulttokensecs, response, token_lifetime="7d", quiet=False, debug=False):
@@ -510,7 +506,6 @@ def ttl2secs(ttl, msg, quiet=False):
 
 ### htgettoken main ####
 def main():
-    global options
     usagestr = "usage: %prog [-h] [otheroptions]"
     parser = OptionParser(usage=usagestr, version=version, prog=prog)
 
@@ -641,7 +636,7 @@ def main():
     envopts = os.getenv("HTGETTOKENOPTS", "")
     envargs = shlex.split(envopts, True)
 
-    parseargs(parser, envargs + sys.argv[1:])
+    options = parseargs(parser, envargs + sys.argv[1:])
 
     if options.optserver is not None:
         # read additional options from optserver
@@ -677,16 +672,15 @@ def main():
         except Exception as e:
             efatal("parsing options from %s failed" % optserver, e, quiet=options.quiet)
 
-        parseargs(parser, serverargs + envargs + sys.argv[1:])
+        options = parseargs(parser, serverargs + envargs + sys.argv[1:])
 
-    checkRequiredOptions(parser)
+    checkRequiredOptions(parser, options)
 
     # set implied options
     if options.debug:
         options.verbose = True
     global showprogress
-    if not options.quiet and not options.verbose:
-        showprogress = True
+    showprogress = not options.quiet and not options.verbose
     if options.registerssh:
         options.nokerberos = True
         options.nossh = True
