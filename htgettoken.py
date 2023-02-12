@@ -279,17 +279,17 @@ def parseargs(parser, argv):
         options.capath = os.getenv('X509_CERT_DIR') or defaults['capath']
 
 
-def getVaultToken(vaulttokensecs, response, quiet=False):
+def getVaultToken(vault, vaulttokensecs, response, token_lifetime="7d", quiet=False, debug=False):
     """Either extract the vault token from an auth response or exchange
     it for another one if either the lease_duration is too long or it
     includes an sshregister policy.
     """
     if 'auth' not in response:
-        fatal("no 'auth' in response from %s" % vaultserver, quiet=quiet)
+        fatal("no 'auth' in response from %s" % vault.host, quiet=quiet)
     auth = response['auth']
 
     if 'client_token' not in auth:
-        fatal("no 'client_token' in response from %s" % vaultserver, quiet=quiet)
+        fatal("no 'client_token' in response from %s" % vault.host, quiet=quiet)
     vaulttoken = auth['client_token']
 
     policies = None
@@ -307,13 +307,13 @@ def getVaultToken(vaulttokensecs, response, quiet=False):
 
     # do a vault token exchange
     path = '/v1/' + 'auth/token/create'
-    url = vaultserver + path
-    if options.debug:
+    url = vault.host + path
+    if debug:
         # normally do this quietly; don't want to advertise the exchange
         log("Reading from", url)
     headers = {'X-Vault-Token': vaulttoken}
     data = {
-        'ttl': options.vaulttokenttl,
+        'ttl': token_lifetime,
         'renewable': 'false',
     }
     if policies is not None:
@@ -324,7 +324,7 @@ def getVaultToken(vaulttokensecs, response, quiet=False):
     except Exception as e:
         efatal("getting vault token from %s failed" % url, e, quiet=quiet)
     body = resp.data.decode()
-    if options.debug:
+    if debug:
         log("##### Begin vault token response")
         log(body)
         log("##### End vault token response")
@@ -832,7 +832,7 @@ def main():
 
                     # construct fake "response" for getVaultToken
                     response = {'auth' : {'client_token': vaulttoken}}
-                    vaulttoken = getVaultToken(vaulttokensecs, response, quiet=options.quiet)
+                    vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
                     writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
                 elif vaulttokenminsecs > 0:
                     if options.verbose:
@@ -938,7 +938,7 @@ def main():
                 if 'auth' in response and response['auth'] is not None:
                     if showprogress:
                         log(" succeeded")
-                    vaulttoken = getVaultToken(vaulttokensecs, response, quiet=options.quiet)
+                    vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
                     if options.verbose:
                         log("Attempting to get bearer token from " + vaultserver)
 
@@ -1051,7 +1051,7 @@ def main():
                     if 'auth' in response and response['auth'] is not None:
                         if showprogress:
                             log(" succeeded")
-                        vaulttoken = getVaultToken(vaulttokensecs, response, quiet=options.quiet)
+                        vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
                         if options.verbose:
                             log("Attempting to get bearer token from " + vaultserver)
 
@@ -1261,7 +1261,7 @@ def main():
                 log(" done")
 
 
-        vaulttoken = getVaultToken(vaulttokensecs, response, quiet=options.quiet)
+        vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
         writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
 
         auth = response['auth']
