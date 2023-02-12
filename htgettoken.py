@@ -389,7 +389,7 @@ def getBearerToken(
     """Read a bearer token from vault.
     """
     if showbearerurl:
-        print(vaultserver + '/v1/' + vaultpath)
+        print(vault.host + '/v1/' + vaultpath)
         showbearerurl = False
     if nobearertoken:
         # no bearer token needed, done
@@ -398,9 +398,9 @@ def getBearerToken(
     if verbose:
         log("  at path " + vaultpath)
     elif showprogress:
-        log("Attempting to get token from " + vaultserver + " ...", end='', flush=True)
+        log("Attempting to get token from " + vault.host + " ...", end='', flush=True)
     path = '/v1/' + vaultpath
-    url = vaultserver + path
+    url = vault.host + path
     params = {'minimum_seconds': token_lifetime}
     if scopes is not None:
         params['scopes'] = scopes
@@ -438,20 +438,21 @@ def isDevFile(file):
     return file.startswith("/dev/std") or file.startswith("/dev/fd")
 
 
-def writeTokenSafely(tokentype, token, outfile, quiet=False):
+def writeTokenSafely(tokentype, token, outfile, quiet=False, verbose=False, debug=False):
     """Safely write out a token to where it might be a world-writable
     directory, unless the output is a device file
     """
     dorename = False
+    showprogress = not quiet and not verbose
     if isDevFile(outfile):
-        if options.debug:
+        if debug:
             log("Writing", tokentype, "token to", outfile)
         try:
             handle = open(outfile, 'w')
         except Exception as e:
             efatal("failure opening for write", e, quiet=quiet)
     else:
-        if options.verbose or showprogress:
+        if verbose or showprogress:
             log("Storing", tokentype, "token in", outfile)
         # Attempt to remove the file first in case it exists, because os.O_EXCL
         #  requires it to be gone.  Need to use os.O_EXCL to prevent somebody
@@ -846,7 +847,7 @@ def main():
                     # construct fake "response" for getVaultToken
                     response = {'auth' : {'client_token': vaulttoken}}
                     vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
-                    writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
+                    writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
                 elif vaulttokenminsecs > 0:
                     if options.verbose:
                         log("Making sure there is at least " + str(vaulttokenminsecs) + " seconds remaining")
@@ -983,7 +984,7 @@ def main():
 
                     if bearertoken is not None:
                         # getting bearer token worked, write out vault token
-                        writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
+                        writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
 
                 elif options.verbose:
                     log("Kerberos authentication failed")
@@ -1108,7 +1109,7 @@ def main():
 
                         if bearertoken is not None:
                             # getting bearer token worked, write out vault token
-                            writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
+                            writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
 
                     elif options.verbose:
                         log("ssh-agent authentication failed")
@@ -1311,7 +1312,7 @@ def main():
 
 
         vaulttoken = getVaultToken(vault, vaulttokensecs, response, token_lifetime=options.vaulttokenttl, quiet=options.quiet)
-        writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet)
+        writeTokenSafely("vault", vaulttoken, vaulttokenfile, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
 
         auth = response['auth']
         if 'metadata' not in auth:
@@ -1389,7 +1390,7 @@ def main():
         fatal("Failure getting token from " + vaultserver, quiet=options.quiet)
 
     # Write bearer token to outfile
-    writeTokenSafely("bearer", bearertoken, outfile, quiet=options.quiet)
+    writeTokenSafely("bearer", bearertoken, outfile, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
 
 
 if __name__ == '__main__':
