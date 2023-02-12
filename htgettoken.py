@@ -373,39 +373,52 @@ def checkVaultMinsecs(vault, vaulttoken, vaulttokenminsecs, quiet=False, verbose
     return False
 
 
-def getBearerToken(vaulttoken, vaultpath, quiet=False):
+def getBearerToken(
+    vault,
+    vaulttoken,
+    vaultpath,
+    scopes=None,
+    audience=None,
+    quiet=False,
+    verbose=False,
+    debug=False,
+    token_lifetime=60,
+    showbearerurl=False,
+    nobearertoken=False,
+):
     """Read a bearer token from vault.
     """
-    if options.showbearerurl:
+    if showbearerurl:
         print(vaultserver + '/v1/' + vaultpath)
-        options.showbearerurl = False
-    if options.nobearertoken:
+        showbearerurl = False
+    if nobearertoken:
         # no bearer token needed, done
         sys.exit(0)
-    if options.verbose:
+    showprogress = not quiet and not verbose
+    if verbose:
         log("  at path " + vaultpath)
     elif showprogress:
         log("Attempting to get token from " + vaultserver + " ...", end='', flush=True)
     path = '/v1/' + vaultpath
     url = vaultserver + path
-    params = {'minimum_seconds': options.minsecs}
-    if options.scopes is not None:
-        params['scopes'] = options.scopes
-    if options.audience is not None:
-        params['audience'] = options.audience
-    if options.debug:
+    params = {'minimum_seconds': token_lifetime}
+    if scopes is not None:
+        params['scopes'] = scopes
+    if audience is not None:
+        params['audience'] = audience
+    if debug:
         log("Reading from", url)
     headers = {'X-Vault-Token': vaulttoken}
     try:
         resp = vault.request(path, headers=headers, params=params)
     except Exception as e:
-        if options.verbose:
+        if verbose:
             elog("Read token from %s failed" % url, e)
         elif showprogress:
             log(" failed")
         return None
     body = resp.data.decode()
-    if options.debug:
+    if debug:
         log("##### Begin vault get bearer token response")
         log(body)
         log("##### End vault get bearer token response")
@@ -846,8 +859,20 @@ def main():
                         log("Attempting to get bearer token from", vaultserver)
                         log("  using vault token from", vaulttokeninfile)
 
-                    bearertoken = getBearerToken(vaulttoken, fullsecretpath, quiet=options.quiet)
-            
+                    bearertoken = getBearerToken(
+                        vault,
+                        vaulttoken,
+                        fullsecretpath,
+                        scopes=options.scopes,
+                        audience=options.audience,
+                        token_lifetime=options.minsecs,
+                        quiet=options.quiet,
+                        verbose=options.verbose,
+                        debug=options.debug,
+                        showbearerurl=options.showbearerurl,
+                        nobearertoken=options.nobearertoken,
+                    )
+
         if bearertoken is None and not options.nokerberos:
             # Try kerberos authentication with vault
             service = "host@" + vaulthostname
@@ -942,7 +967,19 @@ def main():
                     if options.verbose:
                         log("Attempting to get bearer token from " + vaultserver)
 
-                    bearertoken = getBearerToken(vaulttoken, fullsecretpath, quiet=options.quiet)
+                    bearertoken = getBearerToken(
+                        vault,
+                        vaulttoken,
+                        fullsecretpath,
+                        scopes=options.scopes,
+                        audience=options.audience,
+                        token_lifetime=options.minsecs,
+                        quiet=options.quiet,
+                        verbose=options.verbose,
+                        debug=options.debug,
+                        showbearerurl=options.showbearerurl,
+                        nobearertoken=options.nobearertoken,
+                    )
 
                     if bearertoken is not None:
                         # getting bearer token worked, write out vault token
@@ -1055,7 +1092,19 @@ def main():
                         if options.verbose:
                             log("Attempting to get bearer token from " + vaultserver)
 
-                        bearertoken = getBearerToken(vaulttoken, fullsecretpath, quiet=options.quiet)
+                        bearertoken = getBearerToken(
+                            vault,
+                            vaulttoken,
+                            fullsecretpath,
+                            scopes=options.scopes,
+                            audience=options.audience,
+                            token_lifetime=options.minsecs,
+                            quiet=options.quiet,
+                            verbose=options.verbose,
+                            debug=options.debug,
+                            showbearerurl=options.showbearerurl,
+                            nobearertoken=options.nobearertoken,
+                        )
 
                         if bearertoken is not None:
                             # getting bearer token worked, write out vault token
@@ -1322,7 +1371,19 @@ def main():
         if options.verbose:
             log("Getting bearer token from " + vaultserver)
 
-        bearertoken = getBearerToken(vaulttoken, fullsecretpath, quiet=options.quiet)
+        bearertoken = getBearerToken(
+            vault,
+            vaulttoken,
+            fullsecretpath,
+            scopes=options.scopes,
+            audience=options.audience,
+            token_lifetime=options.minsecs,
+            quiet=options.quiet,
+            verbose=options.verbose,
+            debug=options.debug,
+            showbearerurl=options.showbearerurl,
+            nobearertoken=options.nobearertoken,
+        )
 
     if bearertoken is None:
         fatal("Failure getting token from " + vaultserver, quiet=options.quiet)
