@@ -337,15 +337,15 @@ def getVaultToken(vault, vaulttokensecs, response, token_lifetime="7d", quiet=Fa
     fatal("no vault token in response from %s" % url, quiet=quiet)
 
 
-def checkVaultMinsecs(vaulttoken, vaulttokenminsecs, quiet=False):
+def checkVaultMinsecs(vault, vaulttoken, vaulttokenminsecs, quiet=False, verbose=False, debug=False):
     """Check for a minimum number of seconds remaining in vault token
 
     Return True if there's enough time remaining, else False.
     """
     # Look up info about the vault token
     path = '/v1/' + 'auth/token/lookup-self'
-    url = vaultserver + path
-    if options.debug:
+    url = vault.host + path
+    if debug:
         log("Reading from", url)
     headers = {'X-Vault-Token': vaulttoken}
     try:
@@ -354,7 +354,7 @@ def checkVaultMinsecs(vaulttoken, vaulttokenminsecs, quiet=False):
         elog("Looking up vault token at %s failed" % url, e)
         return False
     body = resp.data.decode()
-    if options.debug:
+    if debug:
         log("##### Begin vault lookup-self response")
         log(body)
         log("##### End vault lookup-self response")
@@ -366,7 +366,7 @@ def checkVaultMinsecs(vaulttoken, vaulttokenminsecs, quiet=False):
         fatal("ttl missing from lookup-self response", quiet=quiet)
 
     ttl = response['data']['ttl']
-    if options.verbose:
+    if verbose:
         log("  " + str(ttl) + " seconds remaining")
     if vaulttokenminsecs <= ttl:
         return True
@@ -839,8 +839,8 @@ def main():
                         log("Making sure there is at least " + str(vaulttokenminsecs) + " seconds remaining")
                         log("  in vault token from", vaulttokeninfile)
 
-                    tryget = checkVaultMinsecs(vaulttoken, vaulttokenminsecs, quiet=options.quiet)
-            
+                    tryget = checkVaultMinsecs(vault, vaulttoken, vaulttokenminsecs, quiet=options.quiet, verbose=options.verbose, debug=options.debug)
+
                 if tryget:
                     if options.verbose and not options.nobearertoken:
                         log("Attempting to get bearer token from", vaultserver)
